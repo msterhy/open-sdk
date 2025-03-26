@@ -43,7 +43,7 @@ func LoadConfig(configYml string) {
 
 func GenConfig(configYml string, force bool) error {
 	if !fs.FileExist(configYml) || force {
-		data, _ := yaml.Marshal(&GlobalConfig{MODE: "debug"})
+		data, _ := yaml.Marshal(&GlobalConfig{MODE: "dev"})
 		err := os.WriteFile(configYml, data, 0644)
 		if err != nil {
 			return errors.New(colorful.Red("Generate file with error: " + err.Error()))

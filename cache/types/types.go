@@ -1,7 +1,6 @@
 package types
 
 import (
-	"github.com/go-redis/redis"
 	"time"
 )
 
@@ -15,5 +14,4 @@ type Cache interface {
 	Set(Key string, value any, expireDuration time.Duration) error
 	Del(key string) bool
 	Exists(key string) bool
-	GetRedis() *redis.Client
 }

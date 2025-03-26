@@ -1,18 +1,11 @@
 package config
 
 type GlobalConfig struct {
-	AppName     string `yaml:"AppName"`
-	MODE        string `yaml:"Mode"`
-	ProgramName string `yaml:"ProgramName"`
-	AUTHOR      string `yaml:"Author"`
-	VERSION     string `yaml:"Version"`
-	Host        string `yaml:"Host"`
-	Port        string `yaml:"Port"`
-	LogPath     string `yaml:"LogPath"`
-	Auth        struct {
-		Secret string `yaml:"Secret"`
-		Issuer string `yaml:"Issuer"`
-	} `yaml:"Auth"`
+	AppName   string       `yaml:"AppName"`
+	MODE      string       `yaml:"Mode"` // dev或prod
+	VERSION   string       `yaml:"Version"`
+	Host      string       `yaml:"Host"`
+	Port      string       `yaml:"Port"`
 	Databases []Datasource `yaml:"Databases"`
 	Caches    []Cache      `yaml:"Caches"`
 	Minio     struct {
@@ -24,10 +17,31 @@ type GlobalConfig struct {
 	Elasticsearch struct {
 		Addresses []string `yaml:"addresses"`
 	} `yaml:"elasticsearch"`
+	Wechat struct {
+		AppId     string `yaml:"appid"`
+		AppSecret string `yaml:"appsecret"`
+	} `yaml:"wechat"`
+	MQ struct {
+		Broker        string `yaml:"broker"`         // MQ 的类型（例如 "rabbitmq", "kafka"）
+		Address       string `yaml:"address"`        // MQ 地址（例如 RabbitMQ 的主机地址）
+		Port          string `yaml:"port"`           // MQ 端口
+		Username      string `yaml:"username"`       // MQ 用户名
+		Password      string `yaml:"password"`       // MQ 密码
+		VirtualHost   string `yaml:"virtual_host"`   // RabbitMQ 的虚拟主机
+		Exchange      string `yaml:"exchange"`       // 默认交换机
+		ExchangeType  string `yaml:"exchange_type"`  // 交换机类型（如 "direct", "fanout", "topic"）
+		QueueName     string `yaml:"queue_name"`     // 默认队列名称
+		RetryAttempts int    `yaml:"retry_attempts"` // 重试次数
+		RetryDelay    int    `yaml:"retry_delay"`    // 重试延迟（秒）
+	} `yaml:"mq"`
 	Jwt struct {
 		//关键点：不要留secret，甚至是_secret也不行
-		JwtSecret string `yaml:"jwtsecret"`
+		Mundo    string `yaml:"mundo"`
+		Offercat string `yaml:"offercat"`
 	} `yaml:"jwt"`
+	Apmq struct {
+		Url string `yaml:"url"`
+	} `yaml:"apmq"`
 }
 
 type Datasource struct {
