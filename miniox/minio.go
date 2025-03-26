@@ -32,7 +32,6 @@ func MinioInit() (ok bool) {
 		return false
 	}
 	log.Println("MinIO client initialized successfully")
-
 	return true
 }
 
@@ -57,8 +56,7 @@ func PresignedDownload(c *gin.Context, bucketName string, objectName string) (st
 	defer cancel()
 
 	// 调用 MinIO SDK 生成预签名链接
-	expiry := 24 * time.Hour // 24 hours in seconds
-	presignedURL, err := MinioClient.PresignedGetObject(ctx, bucketName, objectName, expiry, nil)
+	presignedURL, err := MinioClient.PresignedGetObject(ctx, bucketName, objectName, 24*60*60, nil)
 	if err != nil {
 		// 检查是否是取消操作导致的错误
 		if ctx.Err() == context.DeadlineExceeded {
@@ -74,5 +72,4 @@ func PresignedDownload(c *gin.Context, bucketName string, objectName string) (st
 	}
 
 	return presignedURL.String(), nil
-
 }

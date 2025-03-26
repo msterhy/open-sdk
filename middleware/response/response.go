@@ -3,12 +3,14 @@ package response
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/trancecho/open-sdk/libx"
 )
 
 type Response struct {
-	Code int         `json:"code"`
-	Data interface{} `json:"data,omitempty"`
-	Msg  string      `json:"message,omitempty"`
+	Code    int         `json:"code"`
+	Data    interface{} `json:"data,omitempty"`
+	Service string      `json:"service,omitempty"`
+	Msg     string      `json:"message,omitempty"`
 }
 
 func ResponseMiddleware() gin.HandlerFunc {
@@ -27,23 +29,21 @@ func ResponseMiddleware() gin.HandlerFunc {
 		var data interface{}
 		if c.Keys != nil {
 			data = c.Keys["data"]
+
 		}
 		msg := c.Keys["message"]
-		code := c.Keys["code"]
-		if code == nil {
-			code = status
-		}
-		codeInt := code.(int)
 
 		if status == 404 && msg == nil {
 			msg = "Not Found"
 		}
+		service := libx.GetService(c)
 
 		// 构建统一响应结构体
 		response := Response{
-			Code: codeInt,
-			Data: data,
-			Msg:  fmt.Sprintf("%v", msg),
+			Code:    status,
+			Service: service,
+			Data:    data,
+			Msg:     fmt.Sprintf("%v", msg),
 		}
 
 		// 以 JSON 形式返回响应

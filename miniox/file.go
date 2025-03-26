@@ -6,90 +6,68 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
-	"github.com/sirupsen/logrus"
 	"github.com/trancecho/open-sdk/libx"
-	"gopkg.in/natefinch/lumberjack.v2"
+	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
 )
 
-// 假设有一个全局的日志记录器
-var logger = logrus.New()
-
-func init() {
-	// 配置日志轮转
-	logFile := &lumberjack.Logger{
-		Filename:   "./logs/download.log", // 日志文件路径
-		MaxSize:    10,                    // 每个日志文件保存的最大尺寸 单位：M
-		MaxBackups: 3,                     // 日志文件最多保存多少个备份
-		MaxAge:     30,                    // 文件最多保存多少天
-		Compress:   true,                  // 是否压缩
-	}
-	logger.SetOutput(logFile)
-
-	// 设置日志级别
-	logger.SetLevel(logrus.InfoLevel)
-
-	// 设置日志格式
-	logger.SetFormatter(&logrus.JSONFormatter{})
-}
-
-// GetDownloadURL generates a presigned download URL for the specified object in MinIO.
-func GetDownloadURL(c *gin.Context, bucketName string, objectName string, userfilename string) (string, error) {
-	logger := logger.WithFields(logrus.Fields{
-		"bucketName":   bucketName,
-		"objectName":   objectName,
-		"userfilename": userfilename,
-	})
-
-	logger.Info("GetDownloadURL function started")
-
+func Download(c *gin.Context, bucketName string, objectName string) {
 	if bucketName == "" || objectName == "" {
-		err := errors.New("Bucket and object parameters are required")
-		logger.Error(err)
-		return "", err
+		libx.Err(c, http.StatusInternalServerError, "Bucket and object parameters are required", libx.ErrOptions{})
+		return
 	}
 
-	// 使用 PresignedDownload 函数生成预签名下载链接
-	presignedURL, err := PresignedDownload(c, bucketName, objectName)
+	object, err := MinioClient.GetObject(context.Background(), bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
-		logger.WithError(err).Error("Failed to generate presigned URL")
-		return "", err
+		libx.Err(c, http.StatusInternalServerError, "Could not retrieve the file", libx.ErrOptions{})
+		return
 	}
+	defer func(object *minio.Object) {
+		err := object.Close()
+		if err != nil {
+			libx.Err(c, http.StatusInternalServerError, "Error closing the file", libx.ErrOptions{})
+		}
+	}(object)
 
-	logger.Info("Presigned URL generated successfully")
-	return presignedURL, nil
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", objectName))
+	c.Header("Content-Type", "application/octet-stream")
+	if _, err = io.Copy(c.Writer, object); err != nil {
+		libx.Err(c, http.StatusInternalServerError, "Error sending the file", libx.ErrOptions{})
+		return
+	}
+	libx.Ok(c, "File sent successfully", nil)
 }
 
 func Upload(c *gin.Context, bucketName string, objectName string) {
 	if bucketName == "" || objectName == "" {
-		libx.Err(c, http.StatusInternalServerError, "Bucket and object parameters are required", nil)
+		libx.Err(c, http.StatusInternalServerError, "Bucket and object parameters are required", libx.ErrOptions{})
 		return
 	}
 
 	file, err := c.FormFile("uploadFile")
 	if err != nil {
-		libx.Err(c, http.StatusBadRequest, "Error retrieving the file", err)
+		libx.Err(c, http.StatusBadRequest, "Error retrieving the file", libx.ErrOptions{})
 		return
 	}
 
 	srcFile, err := file.Open()
 	if err != nil {
-		libx.Err(c, http.StatusInternalServerError, "Error opening the file", err)
+		libx.Err(c, http.StatusInternalServerError, "Error opening the file", libx.ErrOptions{})
 		return
 	}
 	defer func(srcFile multipart.File) {
 		err := srcFile.Close()
 		if err != nil {
-			libx.Err(c, http.StatusInternalServerError, "Error closing the file", err)
+			libx.Err(c, http.StatusInternalServerError, "Error closing the file", libx.ErrOptions{})
 		}
 	}(srcFile)
 
 	_, err = MinioClient.PutObject(context.Background(), bucketName, objectName, srcFile, file.Size, minio.PutObjectOptions{})
 	if err != nil {
-		libx.Err(c, http.StatusInternalServerError, "Error uploading the file", err)
+		libx.Err(c, http.StatusInternalServerError, "Error uploading the file", libx.ErrOptions{})
 		return
 	}
 	libx.Ok(c, "File uploaded successfully", nil)
@@ -102,7 +80,7 @@ func DownloadToLocal(c *gin.Context, client *minio.Client, bucketName string, ob
 	err := client.FGetObject(c, bucketName, objectName, tmpFilePath, minio.GetObjectOptions{})
 	if err != nil {
 		log.Printf("Error downloading file from MinIO: %v", err)
-		libx.Err(c, http.StatusInternalServerError, "从MinIO下载文件失败", err)
+		libx.Err(c, http.StatusInternalServerError, "从MinIO下载文件失败", libx.ErrOptions{})
 		return err
 	}
 	log.Println("File downloaded from MinIO successfully")

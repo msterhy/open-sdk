@@ -1,82 +1,120 @@
 package logx
 
 import (
-	"github.com/trancecho/open-sdk/config"
+	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
-	"os"
+	"log"
+	"sync"
 )
 
-// NameSpace - 提供带有模块命名空间的logger
-func NameSpace(name string) *zap.SugaredLogger {
-	return zap.S().Named(name)
+// logger 是私有的 Zap 日志记录器
+var logger *zap.Logger
+var once sync.Once
+var initErr error
+
+// InitLogger 初始化全局日志记录器
+func InitLogger(amqpURL, queueName, filename string) error {
+	once.Do(func() {
+		// 配置 RabbitMQ
+		rabbitWriter, err := NewRabbitMQWriter(amqpURL, queueName)
+		if err != nil {
+			initErr = fmt.Errorf("failed to create RabbitMQ writer: %v", err)
+			return
+		}
+
+		// 配置本地文件日志
+		fileWriter := NewFileWriter(filename)
+
+		// 使用 MultiWriteSyncer 同时写入 RabbitMQ 和本地文件
+		multiWriter := zapcore.NewMultiWriteSyncer(
+			zapcore.AddSync(rabbitWriter),
+			fileWriter,
+		)
+
+		// 配置 Zap 编码器
+		encoderConfig := zapcore.EncoderConfig{
+			TimeKey:        "timestamp",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			MessageKey:     "message",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
+			EncodeTime:     zapcore.RFC3339TimeEncoder,
+			EncodeDuration: zapcore.SecondsDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		}
+
+		// 创建 Zap 核心
+		core := zapcore.NewCore(
+			zapcore.NewJSONEncoder(encoderConfig),
+			multiWriter,
+			zap.InfoLevel,
+		)
+
+		// 创建 Logger
+		logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+
+		// 记录初始化成功
+		//logger.Info("Logger initialized",
+		//	zap.String("amqp_url", amqpURL),
+		//	zap.String("queue_name", queueName),
+		//	zap.String("log_file", filename),
+		//)
+		log.Println("Logger initialized")
+	})
+	return initErr
 }
 
-func getLogWriter() zapcore.WriteSyncer {
-	if config.GetConfig().LogPath == "" {
-		config.GetConfig().LogPath = "app.log"
-		print("LogPath 未设置, 使用默认值app.log\n")
+// SyncLogger 同步日志（通常在应用程序退出时调用）
+func SyncLogger() {
+	if logger != nil {
+		_ = logger.Sync()
 	}
-	lj := &lumberjack.Logger{
-		Filename:   config.GetConfig().LogPath,
-		MaxSize:    5,
-		MaxBackups: 5,
-		MaxAge:     30,
-		Compress:   true,
-	}
-	return zapcore.AddSync(lj)
 }
 
-func getEncoder() zapcore.Encoder {
-	encoderConfig := zap.NewDevelopmentEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	return zapcore.NewConsoleEncoder(encoderConfig)
-}
+// 以下是简洁的日志接口
 
-func InitLogger(level zapcore.LevelEnabler) {
-	writeSyncer := getLogWriter()
-	if level == zapcore.DebugLevel {
-		writeSyncer = zapcore.NewMultiWriteSyncer(writeSyncer, zapcore.AddSync(os.Stdout))
-	}
-	encoder := getEncoder()
-	core := zapcore.NewCore(encoder, writeSyncer, level)
-	zap.ReplaceGlobals(zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel)))
-}
-
-// Debug logs a message at debug level.
+// Debug 记录 Debug 级别日志
 func Debug(msg string, fields ...zap.Field) {
-	zap.L().Debug(msg, fields...)
+	if logger != nil {
+		logger.Debug(msg, fields...)
+	}
 }
 
-// Info logs a message at info level.
+// Info 记录 Info 级别日志
 func Info(msg string, fields ...zap.Field) {
-	zap.L().Info(msg, fields...)
+	if logger != nil {
+		logger.Info(msg, fields...)
+	}
 }
 
-// Warn logs a message at warn level.
+// Warn 记录 Warn 级别日志
 func Warn(msg string, fields ...zap.Field) {
-	zap.L().Warn(msg, fields...)
+	if logger != nil {
+		logger.Warn(msg, fields...)
+	}
 }
 
-// Error logs a message at error level.
+// Error 记录 Error 级别日志
 func Error(msg string, fields ...zap.Field) {
-	zap.L().Error(msg, fields...)
+	if logger != nil {
+		logger.Error(msg, fields...)
+	}
 }
 
-// DPanic logs a message at DPanic level. DPanic level logs are particularly
-// important errors. In development the logger panics after logging them.
-func DPanic(msg string, fields ...zap.Field) {
-	zap.L().DPanic(msg, fields...)
-}
-
-// Panic logs a message at panic level. The logger then panics.
-func Panic(msg string, fields ...zap.Field) {
-	zap.L().Panic(msg, fields...)
-}
-
-// Fatal logs a message at fatal level. The logger then calls os.Exit(1).
+// Fatal 记录 Fatal 级别日志并退出程序
 func Fatal(msg string, fields ...zap.Field) {
-	zap.L().Fatal(msg, fields...)
+	if logger != nil {
+		logger.Fatal(msg, fields...)
+	}
+}
+
+// Panic 记录 Panic 级别日志并抛出异常
+func Panic(msg string, fields ...zap.Field) {
+	if logger != nil {
+		logger.Panic(msg, fields...)
+	}
 }

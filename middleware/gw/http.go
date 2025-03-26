@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// 已废弃
 func RequestLog() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()

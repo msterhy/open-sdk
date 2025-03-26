@@ -1,7 +1,11 @@
 package libx
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/trancecho/open-sdk/logx"
+	"go.uber.org/zap"
 	"log"
 )
 
@@ -19,18 +23,34 @@ func Data(c *gin.Context, data interface{}) {
 }
 
 // 一个参数省略msg
-func Ok(c *gin.Context, input ...interface{}) {
-	if len(input) >= 3 {
-		log.Println("too many parameters")
-		Err(c, 500, "参数过多，请后端开发人员排查", nil)
-	}
-	Code(c, 200)
-	if len(input) == 2 {
-		Msg(c, input[0].(string))
-		Data(c, input[1])
-	} else {
-		Msg(c, input[0].(string))
-		Data(c, nil)
+func Ok(c *gin.Context, msg string, data interface{}) {
+	Code(c, 200)  // 设置响应状态码
+	Msg(c, msg)   // 设置响应消息
+	Data(c, data) // 设置响应数据
+
+	// 日志事件
+	logEvent := c.GetString("log_event")
+	if logEvent != "" {
+		var logData string
+
+		// 检查 data 的类型
+		switch d := data.(type) {
+		case string:
+			logData = d
+		case map[string]interface{}: // 处理 gin.H
+			bytes, err := json.Marshal(d) // 将 map 序列化为 JSON 字符串
+			if err != nil {
+				logData = "无法序列化 data"
+			} else {
+				logData = string(bytes)
+			}
+		default:
+			logData = fmt.Sprintf("%v", d) // 对其他类型调用默认格式化
+		}
+
+		logx.Info(logEvent,
+			zap.String("data", logData), // 使用安全的日志字符串
+		)
 	}
 }
 
@@ -38,7 +58,7 @@ func Ok(c *gin.Context, input ...interface{}) {
 func Registered(c *gin.Context, input ...interface{}) {
 	if len(input) >= 3 {
 		log.Println("too many parameters")
-		Err(c, 500, "参数过多，请后端开发人员排查", nil)
+		Err(c, 500, "参数过多，请后端开发人员排查", ErrOptions{})
 	}
 	Code(c, 201)
 	if len(input) == 2 {
@@ -50,42 +70,18 @@ func Registered(c *gin.Context, input ...interface{}) {
 	}
 }
 
-// 一个参数省略msg。
-func Fail(c *gin.Context, input ...interface{}) {
-	if len(input) >= 3 {
-		log.Println("too many parameters")
-		Err(c, 500, "参数过多，请后端开发人员排查", nil)
-	}
-	Code(c, 400)
-	if len(input) == 2 {
-		Msg(c, input[0].(string))
-		Data(c, input[1])
-	} else {
-		Msg(c, "fail")
-		Data(c, input[0])
-	}
+type ErrOptions struct {
+	Err  error `json:"err,omitempty"`
+	Code int   `json:"code,omitempty"`
 }
 
-func Err(c *gin.Context, code int, msg string, err error) {
-	//Code(c, code)
-	// 如果4开头的错误码（6位），就返回400
-	// 4开头代表业务错误，5开头代表我的错误
-	if code >= 400000 && code < 500000 {
-		Code(c, 400)
-	} else {
-		Code(c, 500)
+func Err(c *gin.Context, code int, msg string, options ErrOptions) {
+	Msg(c, msg)
+	Code(c, code)
+	if options != (ErrOptions{}) {
+		Data(c, options)
 	}
-
-	var errorMsg string
-	if err != nil {
-		errorMsg = err.Error()
+	if options.Err != nil {
+		log.Println("error:", options.Err)
 	}
-	c.Set("code", code)
-	c.Set("message", msg+" "+errorMsg)
-	// 打印错误信息
-	log.Println(msg + " " + errorMsg)
-
-	//Data(c, gin.H{
-	//	"error": errorMsg,
-	//})
 }
