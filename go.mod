@@ -15,12 +15,13 @@ require (
 	github.com/minio/minio-go/v7 v7.0.86
 	github.com/mojocn/base64Captcha v1.3.8
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/streadway/amqp v1.1.0
+	go.opentelemetry.io/otel v1.28.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.33.0
 	google.golang.org/appengine v1.6.8
+	google.golang.org/grpc v1.62.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.5.7
@@ -84,7 +85,6 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
-	go.opentelemetry.io/otel v1.28.0 // indirect
 	go.opentelemetry.io/otel/metric v1.28.0 // indirect
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
@@ -95,6 +95,7 @@ require (
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240314234333-6e1732d8331c // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
